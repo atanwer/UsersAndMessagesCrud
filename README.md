@@ -1,5 +1,7 @@
 # Message App
 
+A simple users and messages crud operation with node, express and mongoDB
+
 ## Prerequisites
 
 - Node.js version 20.17.0
