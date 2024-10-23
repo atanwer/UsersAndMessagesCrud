@@ -10,8 +10,8 @@
 1. Clone the repository:
 
    ```
-   git clone https://github.com/atanwer/chat-app.git
-   cd chat-app
+   git clone https://github.com/atanwer/UsersAndMessagesCrud.git
+   cd UsersAndMessagesCrud
    ```
 
 2. Install dependencies:
