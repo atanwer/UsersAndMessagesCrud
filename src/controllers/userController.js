@@ -19,6 +19,10 @@ export const createUser = async (req, res) => {
 export const getUsers = async (req, res) => {
     try {
         const { page = 1, limit = 10, name, dob, age, sortOrder = 'desc' } = req.query;
+
+        const pageNum = parseInt(page);
+        const limitNum = parseInt(limit);
+
         const query = {};
 
         if (name) {
@@ -26,26 +30,39 @@ export const getUsers = async (req, res) => {
         }
 
         if (age) {
-            query.age = age;
+            query.age = parseInt(age);
         }
 
         if (dob) {
             query.dob = new Date(dob);
         }
 
-        const sort = {
-            'createdAt': sortOrder === 'desc' ? -1 : 1
-        }
+        const pipeline = [
+            { $match: query },
+            {
+                $facet: {
+                    metaData: [{ $count: "totalCount" }],
+                    data: [{ $sort: { createdAt: sortOrder === 'desc' ? -1 : 1 } },
+                    { $skip: (pageNum - 1) * limitNum },
+                    { $limit: limitNum }]
+                }
+            }
 
-        const users = await User.find(query).sort(sort).limit(limit * 1).skip((page - 1) * limit);
-        const count = await User.countDocuments(query);
+
+        ];
+        console.log({ pipeline })
+        const [result] = await User.aggregate(pipeline);
+
+        // Format response to match original structure
+        const totalCount = result?.metaData?.[0].totalCount || 0;
+
         res.status(200).json({
-            limit,
+            limit: limitNum,
             success: true,
-            data: users,
-            totalPages: Math.ceil(count / limit),
-            currentPage: page * 1,
-            totalCount: count
+            data: result.data,
+            totalPages: Math.ceil(totalCount / limitNum),
+            currentPage: pageNum,
+            totalCount
         })
     } catch (error) {
         console.error('Error in getting all users: ', error)
