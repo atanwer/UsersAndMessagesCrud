@@ -142,6 +142,16 @@ export const getMessages = async (req, res) => {
                                     }
                                 ]
                             }
+                        },
+                        {
+                            $addFields: {
+                                sender: {
+                                    $first: '$sender'
+                                },
+                                receiver: {
+                                    $first: '$receiver'
+                                }
+                            }
                         }
                     ]
                 }
