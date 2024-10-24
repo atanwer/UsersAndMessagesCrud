@@ -50,7 +50,6 @@ export const getUsers = async (req, res) => {
 
 
         ];
-        console.log({ pipeline })
         const [result] = await User.aggregate(pipeline);
 
         // Format response to match original structure

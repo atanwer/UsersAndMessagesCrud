@@ -75,6 +75,8 @@ export const getMessages = async (req, res) => {
     try {
         const { page = 1, limit = 10, content, senderId, receiverId, sortOrder = 'desc' } = req.query;
         const query = {};
+        const pageNum = parseInt(page);
+        const limitNum = parseInt(limit)
 
         if (content) {
             query.content = { $regex: content, $options: "i" }
@@ -91,16 +93,74 @@ export const getMessages = async (req, res) => {
         const sort = {
             'createdAt': sortOrder === 'desc' ? -1 : 1
         }
+        const pipeLine = [
+            // Converted find method to this
+            { $match: query },
 
-        const messages = await Message.find(query).populate('sender', 'name email').populate('receiver', 'name email').sort(sort).limit(limit * 1).skip((page - 1) * limit);
-        const count = await Message.countDocuments(query);
+            // Used facet to query multiple times with same data of this stage
+            {
+                $facet: {
+
+                    metaData: [{ $count: 'totalCount' }],
+                    data: [
+                        {
+                            // Used bellow method instead of sort
+                            $sort: { createdAt: sortOrder === 'desc' ? -1 : 1 },
+
+                        },
+                        { $skip: (pageNum - 1) * limitNum },
+
+                        { $limit: limitNum },
+                        {
+                            $lookup: {
+                                from: 'users',
+                                localField: 'sender',
+                                foreignField: '_id',
+                                as: 'sender',
+                                pipeline: [
+                                    {
+                                        $project: {
+                                            name: 1,
+                                            email: 1
+                                        }
+                                    }
+                                ]
+                            }
+                        },
+                        {
+                            $lookup: {
+                                from: 'users',
+                                localField: 'receiver',
+                                foreignField: '_id',
+                                as: 'receiver',
+                                pipeline: [
+                                    {
+                                        $project: {
+                                            name: 1,
+                                            email: 1
+                                        }
+                                    }
+                                ]
+                            }
+                        }
+                    ]
+                }
+            }
+        ]
+        const [result] = await Message.aggregate(pipeLine);
+        // Commented for future reference
+        // const messages = await Message.find(query).sort(sort).skip((page - 1) * limit).limit(limit * 1).populate('sender', 'name email').populate('receiver', 'name email');
+        // const count = await Messages.countDocument(query)
+
+        const totalCount = result?.metaData?.[0].totalCount || 0;
+
         res.status(200).json({
-            limit,
+            limit: limitNum,
             success: true,
-            data: messages,
-            totalPages: Math.ceil(count / limit),
-            currentPage: page * 1,
-            totalCount: count
+            data: result.data,
+            totalPages: Math.ceil(totalCount / limitNum),
+            currentPage: pageNum * 1,
+            totalCount,
         })
     } catch (error) {
         console.error('Error in getting message: ', error)
